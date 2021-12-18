@@ -1,12 +1,20 @@
 from kht import kht
-from typing import Any, List, Tuple
+from typing import Any, List, NamedTuple, Tuple
 import cv2
 import math
 import numpy as np
 
 
-BoundingBox = Tuple[float, float, float, float]
-Circle = Tuple[np.ndarray, float]
+class BoundingBox(NamedTuple):
+    x: float
+    y: float
+    w: float
+    h: float
+
+
+class Circle(NamedTuple):
+    center: np.ndarray
+    radius: float
 
 
 class DropDetector():
@@ -78,7 +86,7 @@ class DropDetector():
         drops = list()
         for keypoint in keypoints:
             half_size = keypoint.size / 2
-            bbox = (keypoint.pt[0] - half_size, keypoint.pt[1] - half_size, keypoint.size, keypoint.size)
+            bbox = BoundingBox(keypoint.pt[0] - half_size, keypoint.pt[1] - half_size, keypoint.size, keypoint.size)
             may_be_new = self._may_be_new(keypoint.pt)
             drops.append((bbox, may_be_new))
         return drops
