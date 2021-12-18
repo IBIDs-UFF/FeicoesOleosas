@@ -72,6 +72,10 @@ class DropTracker():
         return itertools.chain(self._former_drops, self._active_drops)
 
     @property
+    def background_msk(self) -> np.ndarray:
+        return self._detector.background_msk
+
+    @property
     def drop_msk(self) -> np.ndarray:
         return self._detector.drop_msk
 

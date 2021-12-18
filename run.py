@@ -6,6 +6,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 import oil
 
+#TODO Manter buffer de frames por causa da patience
+
 
 DATASET_DIR = os.path.join('..', 'FeicoesOleosas-Dataset', 'Petrobras')
 
@@ -52,14 +54,15 @@ def main() -> None:
                     next(pbar)
                 # Initialize some useful variables.
                 frame_flow = None
-                oil_spill = np.full((used_height, used_width, 2), BACKGROUND_ID, dtype=np.int32)
-                oil_spill_pingpong = 0
+                pingpong = 0
                 time_series = np.arange(video.frame_count, dtype=np.float32) / video.fps
                 visible_backbround_series = np.zeros((video.frame_count,), dtype=np.float32)
                 pixel_ind = np.stack(np.meshgrid(np.arange(used_width, dtype=np.int32), np.arange(used_height, dtype=np.int32), indexing='xy'), axis=2)
                 # Render output video.
                 previous_frame_rgb = cv2.resize(next(pbar), (used_width, used_height))
                 previous_frame_gray = cv2.cvtColor(previous_frame_rgb, cv2.COLOR_RGB2GRAY)
+                previous_oil_spill = np.full((used_height, used_width), BACKGROUND_ID, dtype=np.int32)
+                oil_spill = np.full((used_height, used_width), BACKGROUND_ID, dtype=np.int32)
                 for frame_ind in range(max(num_boring_frames, num_background_samples) + 1, video.frame_count):
                     frame_rgb = cv2.resize(next(pbar), (used_width, used_height))
                     frame_gray = cv2.cvtColor(frame_rgb, cv2.COLOR_RGB2GRAY)
@@ -72,27 +75,26 @@ def main() -> None:
                             color = (255, 0, 255) if drop['last_seen'] == frame_ind else (127, 127, 127)
                             cv2.rectangle(frame_rgb, (x, y), (x + w, y + h), color, 1)
                     # Follow the oil spill.
-                    frame_flow = cv2.calcOpticalFlowFarneback(previous_frame_gray, frame_gray, frame_flow, 0.5, 3, 15, 3, 5, 1.2, 0)
+                    frame_flow = cv2.calcOpticalFlowFarneback(frame_gray, previous_frame_gray, None, 0.5, 3, 15, 3, 5, 1.2, 0)
                     spill_from = (frame_flow + pixel_ind + 0.5).astype(np.int32)
                     is_unknown_id = np.logical_or(np.logical_or(np.logical_or(spill_from[..., 0] <= 0, spill_from[..., 0] >= (used_width - 1)), spill_from[..., 1] <= 0), spill_from[..., 1] >= (used_height - 1))
                     is_not_unknown_id = np.logical_not(is_unknown_id)
-                    is_same_id = np.logical_and(is_not_unknown_id, (spill_from == pixel_ind).all(axis=2))
-                    is_copied_id = np.logical_not(np.logical_or(is_same_id, is_unknown_id))
-                    oil_spill[is_same_id, 1 - oil_spill_pingpong] = oil_spill[is_same_id, oil_spill_pingpong]
-                    oil_spill[is_unknown_id, 1 - oil_spill_pingpong] = UNKNOWN_ID
-                    copied_from = spill_from[is_copied_id, :]
-                    oil_spill[is_copied_id, 1 - oil_spill_pingpong] = oil_spill[copied_from[:, 1], copied_from[:, 0], oil_spill_pingpong]
+                    oil_spill[is_unknown_id] = UNKNOWN_ID
+                    copied_from = spill_from[is_not_unknown_id, :]
+                    oil_spill[is_not_unknown_id] = previous_oil_spill[copied_from[:, 1], copied_from[:, 0]]
                     if tracker.lost_drops_footprint is not None:
                         is_lost_drop = tracker.lost_drops_footprint != BACKGROUND_ID
-                        oil_spill[is_lost_drop, 1 - oil_spill_pingpong] = tracker.lost_drops_footprint[is_lost_drop]
-                    oil_spill_pingpong = 1 - oil_spill_pingpong
-                    is_drop_id = oil_spill[..., oil_spill_pingpong] > max(BACKGROUND_ID, UNKNOWN_ID)
-                    is_background_id = oil_spill[..., oil_spill_pingpong] == BACKGROUND_ID
+                        oil_spill[is_lost_drop] = tracker.lost_drops_footprint[is_lost_drop]
+                    is_drop_id = oil_spill > max(BACKGROUND_ID, UNKNOWN_ID)
+                    is_background_id = np.logical_or(oil_spill == BACKGROUND_ID, np.logical_and(is_unknown_id, tracker.background_msk))
                     oil_spill_rgb = np.full((used_height, used_width, 3), UNKNOWN_ID_COLOR, dtype=np.uint8)
                     oil_spill_rgb[is_background_id, :] = BACKGROUND_ID_COLOR
-                    oil_spill_rgb[is_drop_id, :] = DROP_ID_CMAP[oil_spill[is_drop_id, oil_spill_pingpong] % len(DROP_ID_CMAP), :]
+                    #TODO
+                    # oil_spill_rgb[is_drop_id, :] = DROP_ID_CMAP[oil_spill[is_drop_id] % len(DROP_ID_CMAP), :]
+                    if is_drop_id.any():
+                        oil_spill_rgb[..., :] = np.stack(((255 * is_drop_id).astype(np.uint8), np.zeros((used_height, used_width), dtype=np.uint8), np.zeros((used_height, used_width), dtype=np.uint8)), axis=2)
                     # Update visible background statistics
-                    visible_backbround_series[frame_ind] = 1.0 - ((tracker.foreground_msk.sum() + tracker.shadow_msk.sum()) / (255 * used_height * used_width))
+                    visible_backbround_series[frame_ind] = 1.0 - (tracker.background_msk.mean() / 255)
                     # Plot data.
                     fig, (ax_area, ax_drop) = plt.subplots(2, 1, dpi=300, figsize=(2 * used_width / 300, used_height / 300))
                     try:
@@ -129,6 +131,7 @@ def main() -> None:
                     # Keep previous frame.
                     previous_frame_rgb = frame_rgb
                     previous_frame_gray = frame_gray
+                    previous_oil_spill = oil_spill
 
 
 if __name__ == '__main__':
