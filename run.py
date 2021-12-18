@@ -1,19 +1,24 @@
 from oil import DropTracker
 from tqdm import tqdm
-import gc, glob, os
 import cv2
+import gc, glob, os
 import matplotlib.pyplot as plt
 import numpy as np
 import oil
 
-
-COLORS = ('#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd', '#8c564b', '#e377c2', '#7f7f7f', '#bcbd22', '#17becf', '#ff0000', '#00ff00', '#0000ff', '#ffff00', '#00ffff', '#ff00ff', '#c0c0c0', '#808080', '#800000', '#808000', '#008000', '#800080', '#008080', '#000080',)
 
 DATASET_DIR = os.path.join('..', 'FeicoesOleosas-Dataset', 'Petrobras')
 
 DEFAULT_PATIENCE_IN_SECONDS = 2
 BACKGROUND_LEARNING_IN_SECONDS = 30
 SKIP_SECONDS = 0
+
+BACKGROUND_ID = 0
+UNKNOWN_ID = -1
+
+BACKGROUND_ID_COLOR = np.asarray((255, 255, 255), dtype=np.uint8)
+UNKNOWN_ID_COLOR = np.asarray((0, 0, 0), dtype=np.uint8)
+DROP_ID_CMAP = (np.asarray(plt.cm.tab20.colors) * 255).astype(np.uint8)
 
 
 def main() -> None:
@@ -46,9 +51,12 @@ def main() -> None:
                 for _ in range(max(num_boring_frames - num_background_samples, 0)):
                     next(pbar)
                 # Initialize some useful variables.
-                frame_flow = np.zeros((used_height, used_width, 2), dtype=np.float32)
+                frame_flow = None
+                oil_spill = np.full((used_height, used_width, 2), BACKGROUND_ID, dtype=np.int32)
+                oil_spill_pingpong = 0
                 time_series = np.arange(video.frame_count, dtype=np.float32) / video.fps
                 visible_backbround_series = np.zeros((video.frame_count,), dtype=np.float32)
+                pixel_ind = np.stack(np.meshgrid(np.arange(used_width, dtype=np.int32), np.arange(used_height, dtype=np.int32), indexing='xy'), axis=2)
                 # Render output video.
                 previous_frame_rgb = cv2.resize(next(pbar), (used_width, used_height))
                 previous_frame_gray = cv2.cvtColor(previous_frame_rgb, cv2.COLOR_RGB2GRAY)
@@ -57,14 +65,32 @@ def main() -> None:
                     frame_gray = cv2.cvtColor(frame_rgb, cv2.COLOR_RGB2GRAY)
                     # Find and track drops.
                     tracker.update(frame_rgb, frame_gray, frame_ind)
-                    frame_segmentation_rgb = np.stack((tracker.foreground_msk, tracker.drop_msk, tracker.shadow_msk), axis=2)
+                    ## frame_segmentation_rgb = np.stack((tracker.foreground_msk, tracker.drop_msk, tracker.shadow_msk), axis=2)
                     for drop in tracker.drops:
                         if drop['active']:
                             x, y, w, h = map(int, drop['bbox'])
                             color = (255, 0, 255) if drop['last_seen'] == frame_ind else (127, 127, 127)
                             cv2.rectangle(frame_rgb, (x, y), (x + w, y + h), color, 1)
-                    # Compute dense flow.
-                    cv2.calcOpticalFlowFarneback(previous_frame_gray, frame_gray, frame_flow, 0.5, 3, 15, 3, 5, 1.2, 0)
+                    # Follow the oil spill.
+                    frame_flow = cv2.calcOpticalFlowFarneback(previous_frame_gray, frame_gray, frame_flow, 0.5, 3, 15, 3, 5, 1.2, 0)
+                    spill_from = (frame_flow + pixel_ind + 0.5).astype(np.int32)
+                    is_unknown_id = np.logical_or(np.logical_or(np.logical_or(spill_from[..., 0] <= 0, spill_from[..., 0] >= (used_width - 1)), spill_from[..., 1] <= 0), spill_from[..., 1] >= (used_height - 1))
+                    is_not_unknown_id = np.logical_not(is_unknown_id)
+                    is_same_id = np.logical_and(is_not_unknown_id, (spill_from == pixel_ind).all(axis=2))
+                    is_copied_id = np.logical_not(np.logical_or(is_same_id, is_unknown_id))
+                    oil_spill[is_same_id, 1 - oil_spill_pingpong] = oil_spill[is_same_id, oil_spill_pingpong]
+                    oil_spill[is_unknown_id, 1 - oil_spill_pingpong] = UNKNOWN_ID
+                    copied_from = spill_from[is_copied_id, :]
+                    oil_spill[is_copied_id, 1 - oil_spill_pingpong] = oil_spill[copied_from[:, 1], copied_from[:, 0], oil_spill_pingpong]
+                    if tracker.lost_drops_footprint is not None:
+                        is_lost_drop = tracker.lost_drops_footprint != BACKGROUND_ID
+                        oil_spill[is_lost_drop, 1 - oil_spill_pingpong] = tracker.lost_drops_footprint[is_lost_drop]
+                    oil_spill_pingpong = 1 - oil_spill_pingpong
+                    is_drop_id = oil_spill[..., oil_spill_pingpong] > max(BACKGROUND_ID, UNKNOWN_ID)
+                    is_background_id = oil_spill[..., oil_spill_pingpong] == BACKGROUND_ID
+                    oil_spill_rgb = np.full((used_height, used_width, 3), UNKNOWN_ID_COLOR, dtype=np.uint8)
+                    oil_spill_rgb[is_background_id, :] = BACKGROUND_ID_COLOR
+                    oil_spill_rgb[is_drop_id, :] = DROP_ID_CMAP[oil_spill[is_drop_id, oil_spill_pingpong] % len(DROP_ID_CMAP), :]
                     # Update visible background statistics
                     visible_backbround_series[frame_ind] = 1.0 - ((tracker.foreground_msk.sum() + tracker.shadow_msk.sum()) / (255 * used_height * used_width))
                     # Plot data.
@@ -81,14 +107,15 @@ def main() -> None:
                         max_id = 0
                         for drop in tracker.drops:
                             id = drop['id']
-                            plt.plot((time_series[drop['first_seen']], time_series[drop['last_seen']]), (id, id), marker='x')
+                            plt.plot((time_series[drop['first_seen']], time_series[drop['last_seen']]), (id, id), marker='x', color=DROP_ID_CMAP[id % len(DROP_ID_CMAP), :] / 256)
                             max_id = max(max_id, id)
                         ax_drop.set_title('Detected Drops')
                         ax_drop.axes.set_xlabel('Time (seconds)')
                         ## ax_drop.axes.set_xlim(*ax_area.axes.get_xlim())
                         ax_drop.axes.set_ylabel('Drop')
                         ax_drop.axes.set_ylim(0, max_id + 1)
-                        ax_drop.axes.set_yticks(np.arange(max_id + 1), ['', *map(str, np.arange(1, max_id + 1))])
+                        ax_drop.axes.set_yticks(np.arange(max_id + 1))
+                        ax_drop.axes.set_yticklabels(['', *map(str, range(1, max_id + 1))])
                         ax_drop.grid(True)
                         # Draw plots.
                         plt.tight_layout()
@@ -98,7 +125,7 @@ def main() -> None:
                         plt.close(fig)
                         gc.collect()
                     # Write data.
-                    out.write(np.concatenate((frame_rgb, frame_segmentation_rgb, analysis_rgb), axis=1))
+                    out.write(np.concatenate((frame_rgb, oil_spill_rgb, analysis_rgb), axis=1))
                     # Keep previous frame.
                     previous_frame_rgb = frame_rgb
                     previous_frame_gray = frame_gray
