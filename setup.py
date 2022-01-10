@@ -12,7 +12,6 @@ setuptools.setup(
         'matplotlib',
         'opencv-python',
         'opencv-contrib-python',
-        'scipy',
         'tqdm',
     ],
     zip_safe=False)

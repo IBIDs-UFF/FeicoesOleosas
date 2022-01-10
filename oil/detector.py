@@ -1,5 +1,6 @@
+from .subtractor import BackgroundSubtractor
 from kht import kht
-from typing import Any, List, NamedTuple, Tuple
+from typing import List, NamedTuple, Tuple
 import cv2
 import math
 import numpy as np
@@ -21,7 +22,7 @@ class DropDetector():
 
     _MORPH_OPEN_KERNEL = np.ones((5, 5), np.uint8)
 
-    def __init__(self, background_subtractor: Any) -> None:
+    def __init__(self, subtractor: BackgroundSubtractor) -> None:
         # Create the blob detector.
         params = cv2.SimpleBlobDetector_Params()
         params.filterByColor = True
@@ -34,12 +35,10 @@ class DropDetector():
         params.filterByInertia = False
         self._blob_detector = cv2.SimpleBlobDetector_create(params)
         # Initialize other attributes.
-        self._background_subtractor = background_subtractor
+        self._subtractor = subtractor
         self._circles: List[Circle] = list()
         self._background_msk: np.ndarray = None
         self._drop_msk: np.ndarray = None
-        self._foreground_msk: np.ndarray = None
-        self._shadow_msk: np.ndarray = None
 
     def _compute_line_coefficients(self, line: Tuple[float, float], img_size: Tuple[int, int]) -> np.ndarray:
         width, height = img_size
@@ -78,12 +77,10 @@ class DropDetector():
                     if 0 <= pt[0] < width and 0 <= pt[1] < height:
                         self._circles.append((pt, radius))
         # Compute foreground, shadow, and drop masks.
-        temp_msk = self._background_subtractor.apply(frame_rgb, learningRate=0)
-        self._foreground_msk = cv2.morphologyEx((255 * (temp_msk == 255)).astype(np.uint8), cv2.MORPH_OPEN, self._MORPH_OPEN_KERNEL)
-        self._shadow_msk = cv2.morphologyEx((255 * (temp_msk == 127)).astype(np.uint8), cv2.MORPH_OPEN, self._MORPH_OPEN_KERNEL)
-        is_not_background = np.logical_or(self._foreground_msk, self._shadow_msk)
-        self._background_msk = np.logical_not(is_not_background)
-        self._drop_msk = cv2.morphologyEx((255 * np.logical_and(frame_gray <= 50, is_not_background)).astype(np.uint8), cv2.MORPH_OPEN, self._MORPH_OPEN_KERNEL)
+        is_foreground = np.full((height, width), True, dtype=np.bool_)
+        #TODO is_foreground = self._subtractor.apply(cv2.cvtColor(frame_rgb, cv2.COLOR_RGB2LAB))
+        self._background_msk = cv2.morphologyEx((255 * np.logical_not(is_foreground)).astype(np.uint8), cv2.MORPH_OPEN, self._MORPH_OPEN_KERNEL)
+        self._drop_msk = cv2.morphologyEx((255 * np.logical_and(frame_gray <= 50, is_foreground)).astype(np.uint8), cv2.MORPH_OPEN, self._MORPH_OPEN_KERNEL)
         # Detect drops.
         keypoints = self._blob_detector.detect(self._drop_msk)
         drops = list()
@@ -92,20 +89,9 @@ class DropDetector():
             bbox = BoundingBox(keypoint.pt[0] - half_size, keypoint.pt[1] - half_size, keypoint.size, keypoint.size)
             may_be_new = self._may_be_new(keypoint.pt)
             drops.append((bbox, may_be_new))
+        # Return detected drops.
         return drops
 
     @property
     def background_msk(self) -> np.ndarray:
         return self._background_msk
-
-    @property
-    def drop_msk(self) -> np.ndarray:
-        return self._drop_msk
-
-    @property
-    def foreground_msk(self) -> np.ndarray:
-        return self._foreground_msk
-
-    @property
-    def shadow_msk(self) -> np.ndarray:
-        return self._shadow_msk

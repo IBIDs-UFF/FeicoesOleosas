@@ -1,7 +1,11 @@
 from .detector import BoundingBox, DropDetector
-from typing import Any, Dict, Iterator, List, TypedDict, Optional, Tuple
+from .subtractor import BackgroundSubtractor
+from typing import Iterator, List, TypedDict, Optional, Tuple
 import itertools
 import numpy as np
+
+
+BACKGROUND_ID = 0
 
 
 class Drop(TypedDict):
@@ -14,9 +18,9 @@ class Drop(TypedDict):
 
 class DropTracker():
 
-    def __init__(self, background_subtractor: Any, patience: int) -> None:
+    def __init__(self, subtractor: BackgroundSubtractor, patience: int) -> None:
         # Create a drop detector.
-        self._detector = DropDetector(background_subtractor)
+        self._detector = DropDetector(subtractor)
         # Initialize other attributes.
         self._active_drops: List[Drop] = list()
         self._former_drops: List[Drop] = list()
@@ -34,6 +38,7 @@ class DropTracker():
         return True
 
     def update(self, frame_rgb: np.ndarray, frame_gray: np.ndarray, frame_ind: int) -> None:
+        height, width = frame_gray.shape
         drops = self._detector.detect(frame_rgb, frame_gray)
         for drop_bbox, may_be_new in drops:
             match_not_found = True
@@ -55,33 +60,29 @@ class DropTracker():
         lost_drops: List[Tuple[int, BoundingBox]] = list()
         for drop_ind in range(len(self._active_drops) - 1, -1, -1):
             drop = self._active_drops[drop_ind]
-            if frame_ind - drop['last_seen'] > self._patience:
+            if frame_ind - drop['last_seen'] >= self._patience:
                 drop['active'] = False
                 self._former_drops.append(drop)
                 del self._active_drops[drop_ind]
                 lost_drops.append((drop['id'], drop['bbox']))
         if len(lost_drops) > 0:
-            self._lost_drops_footprint = np.ndarray(frame_gray.shape, dtype=np.int32)
+            self._lost_drops_footprint = np.full((height, width), BACKGROUND_ID, dtype=np.int32)
             for drop_id, drop_bbox in lost_drops:
-                self._lost_drops_footprint[int(drop_bbox.y):int(drop_bbox.y + drop_bbox.h), int(drop_bbox.x):int(drop_bbox.x + drop_bbox.w)] = drop_id
+                x1 = max(int(drop_bbox.x) - 5, 0)
+                x2 = min(int(drop_bbox.x + drop_bbox.w) + 5, width - 1)
+                y1 = max(int(drop_bbox.y) - 5, 0)
+                y2 = min(int(drop_bbox.y + drop_bbox.h) + 5, height - 1)
+                self._lost_drops_footprint[y1:y2, x1:x2] = drop_id
         else:
             self._lost_drops_footprint = None
 
     @property
-    def drops(self) -> Iterator[Dict[str, Any]]:
+    def drops(self) -> Iterator[Drop]:
         return itertools.chain(self._former_drops, self._active_drops)
 
     @property
     def background_msk(self) -> np.ndarray:
         return self._detector.background_msk
-
-    @property
-    def drop_msk(self) -> np.ndarray:
-        return self._detector.drop_msk
-
-    @property
-    def foreground_msk(self) -> np.ndarray:
-        return self._detector.foreground_msk
 
     @property
     def lost_drops_footprint(self) -> Optional[np.ndarray]:
@@ -90,7 +91,3 @@ class DropTracker():
     @property
     def patience(self) -> int:
         return self._patience
-
-    @property
-    def shadow_msk(self) -> np.ndarray:
-        return self._detector.shadow_msk
