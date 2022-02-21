@@ -4,6 +4,7 @@ import android.content.ContentValues
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
+import android.os.SystemClock
 import android.provider.MediaStore
 import android.provider.Settings
 import android.view.LayoutInflater
@@ -121,8 +122,8 @@ class RecordFragment : Fragment() {
         val name = SimpleDateFormat(FILENAME_FORMAT, Locale.US).format(System.currentTimeMillis())
         val contentValues = ContentValues().apply {
             put(MediaStore.MediaColumns.DISPLAY_NAME, name)
-            put(MediaStore.MediaColumns.MIME_TYPE, "video/mp4")
-            put(MediaStore.Video.Media.RELATIVE_PATH, "Movies/CameraX-Video")
+            put(MediaStore.MediaColumns.MIME_TYPE, Default.MEDIA_MIME_TYPE)
+            put(MediaStore.Video.Media.RELATIVE_PATH, Default.MEDIA_RELATIVE_PATH)
         }
 
         val mediaStoreOutputOptions = MediaStoreOutputOptions
@@ -135,7 +136,11 @@ class RecordFragment : Fragment() {
             .start(ContextCompat.getMainExecutor(requireContext())) { recordEvent ->
                 when (recordEvent) {
                     is VideoRecordEvent.Start -> {
+                        binding.chronometer.base = SystemClock.elapsedRealtime()
+                        binding.chronometer.start()
+                        binding.chronometer.isVisible = true
                         binding.recordStopButton.isVisible = true
+                        binding.recordStartButton.isVisible = false
                     }
                     is VideoRecordEvent.Finalize -> {
                         if (recordEvent.hasError()) {
@@ -147,6 +152,8 @@ class RecordFragment : Fragment() {
                         }
                         binding.recordStartButton.isVisible = true
                         binding.recordStopButton.isVisible = false
+                        binding.chronometer.isVisible = false
+                        binding.chronometer.stop()
                     }
                 }
             }
