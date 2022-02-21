@@ -1,0 +1,27 @@
+<resources>
+    <string name="app_name">Oily Features</string>
+
+    <string name="action_settings">Settings</string>
+
+    <string name="cancel">Cancel</string>
+
+    <string name="main_fragment_label">Main</string>
+    <string name="gallery_fragment_label">Gallery</string>
+    <string name="record_fragment_label">Record Video</string>
+
+    <string name="binding_failed">Binding failed.\n\n%1$s</string>
+    <string name="hello_main_fragment">Please choose the action you want to perform</string>
+    <string name="recording_failed">Recording failed.\n\n%1$s</string>
+    <string name="recording_success">Video saved to the gallery.\nFile: %1$s.mp4.</string>
+
+    <string name="open_settings">Open settings</string>
+    <string name="permissions_needed_title">Permissions needed</string>
+    <string name="permissions_needed_message">Camera permission needed for recording videos</string>
+    <string name="permissions_not_granted">Permissions not granted by the user</string>
+
+    <string name="go_to_gallery">Go to gallery</string>
+    <string name="go_to_record">Record a new video</string>
+
+    <string name="record_start_button_description">Start video record</string>
+    <string name="record_stop_button_description">Stop video record</string>
+</resources>
