@@ -30,11 +30,12 @@ class MainFragment : Fragment() {
     ) {
         super.onViewCreated(view, savedInstanceState)
 
+        val navController = findNavController()
         binding.buttonToRecord.setOnClickListener {
-            findNavController().navigate(R.id.action_MainFragment_to_RecordFragment)
+            navController.navigate(R.id.action_MainFragment_to_RecordFragment)
         }
         binding.buttonToGallery.setOnClickListener {
-            findNavController().navigate(R.id.action_MainFragment_to_GalleryFragment)
+            navController.navigate(R.id.action_MainFragment_to_GalleryFragment)
         }
     }
 

@@ -11,8 +11,9 @@
 
     <string name="binding_failed">Binding failed.\n\n%1$s</string>
     <string name="hello_main_fragment">Please choose the action you want to perform</string>
-    <string name="recording_failed">Recording failed.\n\n%1$s</string>
-    <string name="recording_success">Video saved to the gallery.\nFile: %1$s.mp4.</string>
+    <string name="record_failed">Recording failed\n\n%1$s</string>
+    <string name="record_in_progress">Recording in progress</string>
+    <string name="record_success">Video saved to the gallery\nFile: %1$s.mp4</string>
 
     <string name="open_settings">Open settings</string>
     <string name="permissions_needed_title">Permissions needed</string>
