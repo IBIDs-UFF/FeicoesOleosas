@@ -4,12 +4,14 @@ import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
-import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
 import android.view.Menu
 import android.view.MenuItem
 import android.widget.Toast
+import androidx.activity.result.ActivityResultLauncher
+import androidx.activity.result.IntentSenderRequest
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
@@ -19,6 +21,7 @@ import androidx.navigation.ui.AppBarConfiguration
 import androidx.navigation.ui.navigateUp
 import androidx.navigation.ui.setupActionBarWithNavController
 import com.prograf.oilyfeatures.databinding.ActivityMainBinding
+import com.prograf.oilyfeatures.widget.VideosListAdapter
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 
@@ -27,19 +30,21 @@ class MainActivity : AppCompatActivity() {
 
     companion object {
         private const val REQUEST_CODE_PERMISSIONS = 10
-        private val REQUIRED_PERMISSIONS = mutableListOf(
+
+        private val REQUIRED_PERMISSIONS = arrayOf(
             Manifest.permission.CAMERA,
-        ).apply {
-            if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.P) {
-                add(Manifest.permission.READ_EXTERNAL_STORAGE)
-                add(Manifest.permission.WRITE_EXTERNAL_STORAGE)
-            }
-        }.toTypedArray()
+            Manifest.permission.READ_EXTERNAL_STORAGE,
+            Manifest.permission.WRITE_EXTERNAL_STORAGE,
+        )
     }
 
     private lateinit var appBarConfiguration: AppBarConfiguration
     private lateinit var binding: ActivityMainBinding
     private lateinit var cameraExecutor: ExecutorService
+
+    lateinit var galleryDeleteLauncher: ActivityResultLauncher<IntentSenderRequest>
+    var galleryDeleteFromAdapter: VideosListAdapter? = null
+    var galleryDeletePosition: Int? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -49,6 +54,20 @@ class MainActivity : AppCompatActivity() {
 
         if (!allPermissionsGranted()) {
             ActivityCompat.requestPermissions(this, REQUIRED_PERMISSIONS, REQUEST_CODE_PERMISSIONS)
+        }
+
+        galleryDeleteLauncher = registerForActivityResult(ActivityResultContracts.StartIntentSenderForResult()) {
+            if (it.resultCode == RESULT_OK) {
+                Toast.makeText(this, getString(R.string.video_deleted_successfully), Toast.LENGTH_LONG).show()
+                galleryDeleteFromAdapter?.let { adapter ->
+                    adapter.videos.removeAt(galleryDeletePosition!!)
+                    adapter.notifyItemRemoved(galleryDeletePosition!!)
+                }
+            } else {
+                Toast.makeText(this, getString(R.string.action_canceled), Toast.LENGTH_LONG).show()
+            }
+            galleryDeleteFromAdapter = null
+            galleryDeletePosition = null
         }
 
         setSupportActionBar(binding.toolbar)

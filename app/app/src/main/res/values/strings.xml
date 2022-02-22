@@ -23,6 +23,16 @@
     <string name="go_to_gallery">Go to gallery</string>
     <string name="go_to_record">Record a new video</string>
 
+    <string name="delete_button_description">Delete file</string>
     <string name="record_start_button_description">Start video record</string>
     <string name="record_stop_button_description">Stop video record</string>
+    <string name="send_button_description">Send to process</string>
+    <string name="thumbnail_view_description">Thumbnail view</string>
+
+    <string name="duration_format">Duration: %d:%02d</string>
+    <string name="size_format">Size: %s</string>
+
+    <string name="video_deleted_successfully">Video deleted successfully</string>
+    <string name="action_canceled">Action canceled</string>
+
 </resources>
