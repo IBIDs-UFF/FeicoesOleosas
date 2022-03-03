@@ -53,5 +53,5 @@ dependencies {
     implementation 'androidx.navigation:navigation-ui-ktx:2.4.1'
     implementation 'commons-io:commons-io:20030203.000550'
 
-    annotationProcessor 'com.github.bumptech.glide:compiler:4.13.0'
+    labelProcessor 'com.github.bumptech.glide:compiler:4.13.0'
 }

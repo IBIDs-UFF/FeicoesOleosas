@@ -1,0 +1,5 @@
+train: ../../.drop_dataset/images/train/
+val: ../../.drop_dataset/images/val/
+test: ../../.drop_dataset/images/test/
+nc: 1
+names: ["drop"]
