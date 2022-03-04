@@ -14,12 +14,13 @@ import default_arguments, oil
 import kornia
 import matplotlib.pyplot as plt
 import numpy as np
+import pandas
 import torch
 
 
 DEFAULT_CONFIDENCE_THRESHOLD = 0.10
 DEFAULT_LIFETIME_THRESHOLD_IN_SECONDS = 4.0
-DEFAULT_SCALE_FACTOR = 0.5
+DEFAULT_SCALE_FACTOR = 3.0
 DEFAULT_TRACKING_QUEUE_SIZE_IN_SECONDS = 1.0
 
 
@@ -80,7 +81,7 @@ def main(args: argparse.Namespace) -> None:
         DROP_ID_CMAP = torch.tensor(plt.cm.tab20.colors, dtype=torch.float32, device=args.device).T
         frame_title_style = dict(org=(10, used_height - 10), fontFace=cv2.FONT_HERSHEY_SIMPLEX, fontScale=0.5, thickness=1, lineType=cv2.LINE_AA)
         # Create the flow estimator.
-        flow_estimator = FlowEstimator(args.device)
+        flow_estimator = FlowEstimator(device=args.device, scale=args.scale, used_width=used_width, used_height=used_height)
         tmp = max(32, int(32 / args.scale))
         padding = (0, ((used_width - 1) // tmp + 1) * tmp - used_width, 0, ((used_height - 1) // tmp + 1) * tmp - used_height)
         hsv = torch.zeros((3, used_height, used_width), dtype=torch.float32, device=args.device)
@@ -90,7 +91,7 @@ def main(args: argparse.Namespace) -> None:
         num_lifetime_threshold_frames = int(args.lifetime_threshold * fps)
         drop_tracker = DropTracker(confidence_threshold=args.confidence_threshold, device=args.device, frame_size=args.frame_size, lifetime_threshold=num_lifetime_threshold_frames, patience=num_tracking_queue_frames)
         # Create the tracking queue and fill it.
-        queue =  deque()
+        queue = deque()
         with tqdm(desc=f'Filling the tracking queue with {args.tracking_queue_size} second(s)', total=num_tracking_queue_frames) as pbar:
             ret, frame_bgr = video_in.read()
             if ret:
@@ -107,9 +108,7 @@ def main(args: argparse.Namespace) -> None:
                 frame_bgr = image_to_tensor(cv2.resize(frame_bgr, (used_width, used_height)), device=args.device)
                 frame_rgb = kornia.color.bgr_to_rgb(frame_bgr)
                 padded_img = torch.nn.functional.pad(frame_rgb.unsqueeze(0), padding)
-                flow, mask = flow_estimator.apply(queue[-1].padded_img, padded_img, args.scale)
-                mask = mask[0, 0, :used_height, :used_width]
-                flow = (flow[0, :2, :used_height, :used_width] * mask - flow[0, 2:, :used_height, :used_width] * (1 - mask)).permute(1, 2, 0)
+                flow = flow_estimator.estimate(queue[-1].padded_img, padded_img)
                 drop_tracker.update(frame_rgb, frame_ind)
                 # Insert current frame in the frame queue.
                 queue.append(BufferItem(frame_rgb=frame_rgb, padded_img=padded_img, flow=flow))
@@ -132,9 +131,7 @@ def main(args: argparse.Namespace) -> None:
                     frame_bgr = image_to_tensor(cv2.resize(frame_bgr, (used_width, used_height)), device=args.device)
                     frame_rgb = kornia.color.bgr_to_rgb(frame_bgr)
                     padded_img = torch.nn.functional.pad(frame_rgb.unsqueeze(0), padding)
-                    flow, mask = flow_estimator.apply(queue[-1].padded_img, padded_img, args.scale)
-                    mask = mask[0, 0, :used_height, :used_width]
-                    flow = (flow[0, :2, :used_height, :used_width] * mask - flow[0, 2:, :used_height, :used_width] * (1 - mask)).permute(1, 2, 0)
+                    flow = flow_estimator.estimate(queue[-1].padded_img, padded_img)
                     drop_tracker.update(frame_rgb, frame_ind)
                     # Draw lost drops
                     if drop_tracker.lost_drops_footprint is not None:
@@ -147,11 +144,9 @@ def main(args: argparse.Namespace) -> None:
                     from_y = torch.clip(spill_from[..., 1].ravel(), 0, used_height - 1)
                     new_oil_spill = oil_spill[from_y, from_x].view(used_height, used_width)
                     oil_spill = torch.maximum(oil_spill, new_oil_spill)
-                    oil_spill_rgb = BACKGROUND_ID_COLOR.view(3, 1, 1).repeat(1, used_height, used_width)
-                    is_oil = oil_spill != oil.BACKGROUND_ID
-                    oil_spill_rgb[:, is_oil] = DROP_ID_CMAP[:, (oil_spill[is_oil].ravel() % len(DROP_ID_CMAP)).long()]
                     # Update visible background statistics
-                    drop_ids, spill_areas = torch.unique(oil_spill[is_oil], return_counts=True)
+                    oil_spill_id = oil_spill.ravel()
+                    drop_ids, spill_areas = torch.unique(oil_spill_id[oil_spill_id != oil.BACKGROUND_ID], return_counts=True)
                     for drop_id, spill_area in zip(drop_ids, spill_areas):
                         drop_id, spill_area = drop_id.item(), spill_area.item()
                         area_series = area_counts.get(drop_id, None)
@@ -159,7 +154,7 @@ def main(args: argparse.Namespace) -> None:
                             area_series = np.zeros((num_frames,), dtype=np.float32)
                             area_counts[drop_id] = area_series
                         area_series[frame_ind] = spill_area * (100 / (used_width * used_height))
-                    # Draw active drops.
+                    # Draw drop bounding boxes.
                     rectangle = []
                     color = []
                     candidate_drop_count = 0
@@ -174,11 +169,15 @@ def main(args: argparse.Namespace) -> None:
                             former_drop_count += 1
                     if len(rectangle) > 0:
                         kornia.utils.draw_rectangle(frame_rgb.unsqueeze(0), rectangle=torch.as_tensor([rectangle], dtype=torch.float32, device=args.device), color=torch.as_tensor([color], dtype=torch.float32, device=args.device))
+                    # Draw oil spill.
+                    oil_spill_rgb = DROP_ID_CMAP[:, (oil_spill_id % DROP_ID_CMAP.shape[-1]).long()]
+                    oil_spill_rgb[:, oil_spill_id == oil.BACKGROUND_ID] = BACKGROUND_ID_COLOR.unsqueeze(1)
+                    oil_spill_rgb = oil_spill_rgb.view(3, used_height, used_width)
                     # Write result to output video.
                     video_out.write(np.concatenate((
-                        cv2.putText(tensor_to_image(kornia.color.rgb_to_bgr(past_data.frame_rgb)).copy(), 'Current Frame', color=(0, 0, 0), **frame_title_style),
+                        cv2.putText(tensor_to_image(kornia.color.rgb_to_bgr(past_data.frame_rgb)).copy(), f'Drops: {former_drop_count} | Candidates: {candidate_drop_count}', color=(0, 0, 0), **frame_title_style),
                         cv2.putText(tensor_to_image(kornia.color.rgb_to_bgr(flow_to_rgb(past_data.flow, hsv))).copy(), 'Motion Flow', color=(255, 255, 255), **frame_title_style),
-                        cv2.putText(tensor_to_image(kornia.color.rgb_to_bgr(oil_spill_rgb)).copy(), f'Oil Spill ({former_drop_count} drops, {candidate_drop_count} candidates)', color=(0, 0, 0), **frame_title_style),
+                        cv2.putText(tensor_to_image(kornia.color.rgb_to_bgr(oil_spill_rgb)).copy(), 'Oil Spill', color=(0, 0, 0), **frame_title_style),
                     ), axis=1))
                     # Update the frame queue.
                     queue.append(BufferItem(frame_rgb=frame_rgb, padded_img=padded_img, flow=flow))
@@ -188,6 +187,9 @@ def main(args: argparse.Namespace) -> None:
                     ret, frame_bgr = video_in.read()
         finally:
             video_out.release()
+            # Write result to to Excel .xlsx file.
+            df = pandas.DataFrame(drop_tracker.drops)
+            df.to_excel(f'{os.path.splitext(args.output)[0]}.xlsx')
     finally:
         video_in.release()
 

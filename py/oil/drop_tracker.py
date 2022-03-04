@@ -29,7 +29,7 @@ class DropTracker():
         self._former_drops: List[Drop] = list()
         self._lifetime_threshold = lifetime_threshold
         self._lost_drops_footprint: Optional[Tensor] = None
-        self._next_drop_id = 1
+        self._next_drop_id = BACKGROUND_ID + 1
         self._patience = int(patience)
 
     @torch.no_grad()
