@@ -1,13 +1,14 @@
 from tqdm import tqdm
 from typing import List, Tuple
-import argparse, os, shutil, subprocess, sys, tempfile
+import argparse, os, shutil, subprocess, sys
 import default_arguments
+import oil
 import sklearn.model_selection
 
 
-DEFAULT_BATCH_SIZE = 32
+DEFAULT_BATCH_SIZE = 16
 DEFAULT_EPOCHS = 100
-DEFAULT_WORKERS = 24
+DEFAULT_WORKERS = 4
 
 
 def split_dataset(dataset_dir: str) -> Tuple[Tuple[List[str], List[str]], Tuple[List[str], List[str]], Tuple[List[str], List[str]]]:
@@ -46,6 +47,8 @@ def main(args: argparse.Namespace) -> None:
     # Call YOLOv5's train script.
     train_script_path = os.path.join(yolov5_dir, 'train.py')
     subprocess.run([sys.executable, train_script_path, '--img', str(args.frame_size), '--cfg', 'drop_yolov5s.yaml', '--hyp', 'hyp.scratch-low.yaml', '--batch', str(args.batch_size), '--epochs', str(args.epochs), '--data', 'drop_data.yaml', '--weights', 'yolov5s.pt', '--workers', str(args.workers), '--name', 'yolo_drop_det'])
+    # Copy best trained model to the YOLOv5's root folder.
+    shutil.copyfile(os.path.join(yolov5_dir, 'runs', 'train', 'yolo_drop_det', 'weights', 'best.pt'), oil.DROP_DETECTOR_WEIGHTS_FILEPATH)
 
 
 if __name__ == '__main__':
@@ -57,6 +60,6 @@ if __name__ == '__main__':
     parser.add_argument('--epochs', metavar='NUMBER', type=int, default=DEFAULT_EPOCHS, help='number of epochs to train for')
     parser.add_argument('--workers', metavar='NUMBER', type=int, default=DEFAULT_WORKERS, help='number of workers')
     # Parse arguments.
-    args = parser.parse_args(['--dataset', os.path.join('..', 'FeicoesOleosas-Dataset', 'Drop Images')])  #TODO Debug
+    args = parser.parse_args()
     # Call the main method.
     main(args)

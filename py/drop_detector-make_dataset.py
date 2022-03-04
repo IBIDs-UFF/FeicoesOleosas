@@ -51,7 +51,7 @@ def main(args: argparse.Namespace) -> None:
         fps = int(video_in.get(cv2.CAP_PROP_FPS))
         width = int(video_in.get(cv2.CAP_PROP_FRAME_WIDTH))
         height = int(video_in.get(cv2.CAP_PROP_FRAME_HEIGHT))
-        used_width, used_height = utils.compute_used_size(width, height, args.frame_size)
+        used_width, used_height = default_arguments.compute_used_size(width, height, args.frame_size)
         # Create a window.
         cv2.namedWindow('Video', cv2.WINDOW_NORMAL)
         cv2.setMouseCallback('Video', draw)

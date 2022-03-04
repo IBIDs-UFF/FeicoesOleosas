@@ -129,3 +129,6 @@ dmypy.json
 .pyre/
 /app/.gradle
 /app/.idea
+/py/.drop_dataset
+/py/oil/yolov5/runs
+/py/wandb

@@ -5,13 +5,10 @@ import os
 import torch
 
 
-Device = torch.device
-
-
 class FlowEstimator:
 
     @torch.no_grad()
-    def __init__(self, device: Device) -> None:
+    def __init__(self, device: torch.device) -> None:
         # Setup the RIFE model.
         self._model = Model()
         self._model.load_model(os.path.join(os.path.dirname(__file__), 'rife'), -1)
