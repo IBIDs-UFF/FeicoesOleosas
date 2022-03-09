@@ -1,23 +1,18 @@
 from about import *
 from io import BytesIO
+from subprocess import CalledProcessError
+from tqdm import tqdm
 import html, mimetypes, os, posixpath, re, shutil
 import http.server
+import argparse, subprocess, sys
 import urllib.request, urllib.parse, urllib.error
+
+
+RUN_SCRIPT_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'py', 'run.py'))
  
  
 class SimpleHTTPRequestHandler(http.server.BaseHTTPRequestHandler):
- 
-    """Simple HTTP request handler with GET/HEAD/POST commands.
-    This serves files from the current directory and any of its
-    subdirectories.  The MIME type for files is determined by
-    calling the .guess_type() method. And can reveive file uploaded
-    by client.
-    The GET/HEAD/POST requests are identical except that the HEAD
-    request omits the actual contents of the file.
-    """
- 
-    server_version = "SimpleHTTPWithUpload/" + __version__
- 
+
     def do_GET(self):
         """Serve a GET request."""
         f = self.send_head()
@@ -37,21 +32,21 @@ class SimpleHTTPRequestHandler(http.server.BaseHTTPRequestHandler):
         print((r, info, "by: ", self.client_address))
         f = BytesIO()
         f.write(b'<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">')
-        f.write(b"<html>\n<title>Upload Result Page</title>\n")
-        f.write(b"<body>\n<h2>Upload Result Page</h2>\n")
-        f.write(b"<hr>\n")
+        f.write(b'<html>\n<title>Upload Result Page</title>\n')
+        f.write(b'<body>\n<h2>Upload Result Page</h2>\n')
+        f.write(b'<hr>\n')
         if r:
-            f.write(b"<strong>Success:</strong>")
+            f.write(b'<strong>Success:</strong>')
         else:
-            f.write(b"<strong>Failed:</strong>")
+            f.write(b'<strong>Failed:</strong>')
         f.write(info.encode())
-        f.write(("<br><a href=\"%s\">back</a>" % self.headers['referer']).encode())
-        f.write(b"<hr></body>\n</html>\n")
+        f.write(f'<br><a href=\"{self.headers["referer"]}\">back</a>'.encode())
+        f.write(b'<hr></body>\n</html>\n')
         length = f.tell()
         f.seek(0)
         self.send_response(200)
-        self.send_header("Content-type", "text/html")
-        self.send_header("Content-Length", str(length))
+        self.send_header('Content-type', 'text/html')
+        self.send_header('Content-Length', str(length))
         self.end_headers()
         if f:
             self.copyfile(f, self.wfile)
@@ -60,45 +55,55 @@ class SimpleHTTPRequestHandler(http.server.BaseHTTPRequestHandler):
     def deal_post_data(self):
         content_type = self.headers['content-type']
         if not content_type:
-            return (False, "Content-Type header doesn't contain boundary")
-        boundary = content_type.split("=")[1].encode()
+            return (False, 'Content-Type header doesn\'t contain boundary')
+        boundary = content_type.split('=')[1].encode()
         remainbytes = int(self.headers['content-length'])
         line = self.rfile.readline()
         remainbytes -= len(line)
         if not boundary in line:
-            return (False, "Content NOT begin with boundary")
+            return (False, 'Content NOT begin with boundary')
         line = self.rfile.readline()
         remainbytes -= len(line)
         fn = re.findall(r'Content-Disposition.*name="file"; filename="(.*)"', line.decode())
         if not fn:
-            return (False, "Can't find out file name...")
+            return (False, 'Can\'t find out file name...')
         path = self.translate_path(self.path)
         fn = os.path.join(path, fn[0])
+        pbar = tqdm(desc=f'Uploading video to "{fn}"', total=remainbytes, unit='B', unit_scale=True, unit_divisor=1024)
         line = self.rfile.readline()
         remainbytes -= len(line)
+        pbar.update(len(line))
         line = self.rfile.readline()
         remainbytes -= len(line)
+        pbar.update(len(line))
         try:
             out = open(fn, 'wb')
         except IOError:
-            return (False, "Can't create file to write, do you have permission to write?")
-                
+            return (False, 'Can\'t create file to write, do you have permission to write?')
         preline = self.rfile.readline()
         remainbytes -= len(preline)
+        pbar.update(len(preline))
         while remainbytes > 0:
             line = self.rfile.readline()
             remainbytes -= len(line)
+            pbar.update(len(line))
             if boundary in line:
                 preline = preline[0:-1]
                 if preline.endswith(b'\r'):
                     preline = preline[0:-1]
                 out.write(preline)
                 out.close()
-                return (True, "File '%s' upload success!" % fn)
+                pbar.close()
+                try:
+                    result = subprocess.run([sys.executable, RUN_SCRIPT_PATH, '--input', fn])
+                    result.check_returncode()
+                    return (True, f'Click "Back" to access the results produced for the file "{os.path.basename(fn)}".')
+                except CalledProcessError as error:
+                    return (False, str(error))
             else:
                 out.write(preline)
                 preline = line
-        return (False, "Unexpect Ends of data.")
+        return (False, 'Unexpect ends of data.')
  
     def send_head(self):
         """Common code for GET and HEAD commands.
@@ -114,10 +119,10 @@ class SimpleHTTPRequestHandler(http.server.BaseHTTPRequestHandler):
             if not self.path.endswith('/'):
                 # redirect browser - doing basically what apache does
                 self.send_response(301)
-                self.send_header("Location", self.path + "/")
+                self.send_header('Location', f'{self.path}/')
                 self.end_headers()
                 return None
-            for index in "index.html", "index.htm":
+            for index in ('index.html', 'index.htm'):
                 index = os.path.join(path, index)
                 if os.path.exists(index):
                     path = index
@@ -131,13 +136,13 @@ class SimpleHTTPRequestHandler(http.server.BaseHTTPRequestHandler):
             # transmitted *less* than the content-length!
             f = open(path, 'rb')
         except IOError:
-            self.send_error(404, "File not found")
+            self.send_error(404, 'File not found')
             return None
         self.send_response(200)
-        self.send_header("Content-type", ctype)
+        self.send_header('Content-type', ctype)
         fs = os.fstat(f.fileno())
-        self.send_header("Content-Length", str(fs[6]))
-        self.send_header("Last-Modified", self.date_time_string(fs.st_mtime))
+        self.send_header('Content-Length', str(fs[6]))
+        self.send_header('Last-Modified', self.date_time_string(fs.st_mtime))
         self.end_headers()
         return f
  
@@ -148,39 +153,38 @@ class SimpleHTTPRequestHandler(http.server.BaseHTTPRequestHandler):
         interface the same as for send_head().
         """
         try:
-            videos = list(filter(lambda arg: arg.lower().endswith('.mp4'), os.listdir(path)))
+            videos = list(filter(lambda arg: arg.lower().endswith('.mp4') or arg.lower().endswith('.xlsx'), os.listdir(path)))
         except os.error:
-            self.send_error(404, "No permission to list directory")
+            self.send_error(404, 'No permission to list directory')
             return None
         videos.sort(key=lambda a: a.lower())
         f = BytesIO()
         displaypath = html.escape(urllib.parse.unquote(self.path))
         f.write(b'<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">')
-        f.write(("<html>\n<title>Directory listing for %s</title>\n" % displaypath).encode())
-        f.write(("<body>\n<h2>Directory listing for %s</h2>\n" % displaypath).encode())
-        f.write(b"<hr>\n")
-        f.write(b"<form ENCTYPE=\"multipart/form-data\" method=\"post\">")
-        f.write(b"<input name=\"file\" type=\"file\" accept=\"video/*\">")
-        f.write(b"<input type=\"submit\" value=\"upload\"/></form>\n")
-        f.write(b"<hr>\n<ul>\n")
+        f.write(f'<html>\n<title>Directory listing for {displaypath}</title>\n'.encode())
+        f.write(f'<body>\n<h2>Directory listing for {displaypath}</h2>\n'.encode())
+        f.write(b'<hr>\n')
+        f.write(b'<form ENCTYPE=\"multipart/form-data\" method=\"post\">')
+        f.write(b'<input name=\"file\" type=\"file\" accept=\"video/*\">')
+        f.write(b'<input type=\"submit\" value=\"upload\"/></form>\n')
+        f.write(b'<hr>\n<ul>\n')
         for name in videos:
             fullname = os.path.join(path, name)
             displayname = linkname = name
             # Append / for directories or @ for symbolic links
             if os.path.isdir(fullname):
-                displayname = name + "/"
-                linkname = name + "/"
+                displayname = f'{name}/'
+                linkname = f'{name}/'
             if os.path.islink(fullname):
-                displayname = name + "@"
+                displayname = f'{name}@'
                 # Note: a link to a directory displays with @ and links with /
-            f.write(('<li><a href="%s">%s</a>\n'
-                    % (urllib.parse.quote(linkname), html.escape(displayname))).encode())
-        f.write(b"</ul>\n<hr>\n</body>\n</html>\n")
+            f.write(f'<li><a href="{urllib.parse.quote(linkname)}">{html.escape(displayname)}</a>\n'.encode())
+        f.write(b'</ul>\n<hr>\n</body>\n</html>\n')
         length = f.tell()
         f.seek(0)
         self.send_response(200)
-        self.send_header("Content-type", "text/html")
-        self.send_header("Content-Length", str(length))
+        self.send_header('Content-type', 'text/html')
+        self.send_header('Content-Length', str(length))
         self.end_headers()
         return f
  
@@ -190,7 +194,6 @@ class SimpleHTTPRequestHandler(http.server.BaseHTTPRequestHandler):
         (e.g. drive or directory names) are ignored.  (XXX They should
         probably be diagnosed.)
         """
-        # abandon query parameters
         path = path.split('?',1)[0]
         path = path.split('#',1)[0]
         path = posixpath.normpath(urllib.parse.unquote(path))
@@ -227,7 +230,6 @@ class SimpleHTTPRequestHandler(http.server.BaseHTTPRequestHandler):
         as a default; however it would be permissible (if
         slow) to look inside the data to make a better guess.
         """
- 
         base, ext = posixpath.splitext(path)
         if ext in self.extensions_map:
             return self.extensions_map[ext]
@@ -245,12 +247,20 @@ class SimpleHTTPRequestHandler(http.server.BaseHTTPRequestHandler):
         '.py': 'text/plain',
         '.c': 'text/plain',
         '.h': 'text/plain',
+        '.mp4': 'video/mp4',
+        '.xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
     })
  
  
-def test(HandlerClass = SimpleHTTPRequestHandler, ServerClass = http.server.HTTPServer):
-    http.server.test(HandlerClass, ServerClass)
-
-
 if __name__ == '__main__':
-    test()
+    # Create the argument parser.
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--address', metavar='ADDRESS', type=str, default='localhost', help='the server address')
+    parser.add_argument('--port', metavar='PORT', type=int, default=8000, help='the desired port number')
+    # Parse arguments.
+    args = parser.parse_args()
+    # Start the server.
+    httpd = http.server.HTTPServer((args.address, args.port), SimpleHTTPRequestHandler)
+    address, port = httpd.server_address
+    print(f'Start serving HTTP on {address} port {port} (http://{address}:{port}/)...', flush=True)
+    httpd.serve_forever()

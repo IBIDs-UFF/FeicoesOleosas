@@ -30,17 +30,17 @@ O primeiro comando criará a pasta `FeicoesOleosas` na pasta corrente e colocar�
 
 ## Inicialização do Servidor
 
-Uma vez que o container estiver criado, inicialize o servidor executando o comando abaixo, substituindo `<port>` pela porta liberada pelo administrador da rede:
+Uma vez que o container estiver criado, inicialize o servidor executando o comando abaixo, substituindo `ADDRESS` pelo endereço da máquina que hospeda o servidor e `PORT` pela porta liberada pelo administrador da rede:
 
 ```bash
-docker run feicoesoleosas python wd/http/server.py <port>
+docker run feicoesoleosas python wd/http/server.py --address ADDRESS --port PORT
 ```
 
-A partir de agora o servidor web e de processamento estará disponível no endereço `<ip-address>:<port>`, onde `<ip-address>` é o [endereço IP](https://en.wikipedia.org/wiki/IP_address) da máquina que hospeda o servidor. Ou seja, após inicializado o servidor poderá ser acessado por um browser ou pelo aplicativo. Recomenda-se o uso do browser [Chrome](https://www.google.com/chrome/).
+A partir de agora o servidor web e de processamento estará disponível no endereço `ADDRESS:PORT`. Ou seja, após inicializado, o servidor poderá ser acessado por um browser ou pelo aplicativo. Recomenda-se o uso do browser [Chrome](https://www.google.com/chrome/). Ambos argumentos são opcionais. Caso não sejam informados então `ADDRESS` será igual a `localhost` e `PORT` será igual a `8000`.
 
-Por exemplo, da própria máquina que atua como servidor, se `<port>` é igual a `8000` então o endereço do servidor web é [http://127.0.0.1:8000](http://127.0.0.1:8000) ou [http://localhost:8000](http://localhost:8000).
+Por exemplo, da própria máquina que atua como servidor, se `PORT` é igual a `8080` e `ADDRESS` não for informado então o endereço do servidor web será [http://localhots:8080](http://localhots:8080).
 
-O endereço de acesso a partir de outra máquina e do aplicativo dependerá do endereço IP pelo qual a máquina é visível e/ou do nome de domínio atribuído pelo [Sistema de Nome de Domínio (DNS)](https://en.wikipedia.org/wiki/Domain_Name_System) para torná-la visível. Por exemplo, se o endereço IP da máquina é `192.0.2.44`, o nome de domínio é `www.feicesoleosas.com` e a porta é `8000` então o servidor web é acessado por [http://192.0.2.44:8000](http://192.0.2.44:8000) e/ou [http://www.feicesoleosas.com:8000](http://www.feicesoleosas.com:8000).
+O endereço de acesso a partir de outra máquina e do aplicativo dependerá do [endereço IP](https://en.wikipedia.org/wiki/IP_address) pelo qual a máquina é visível e/ou do nome de domínio atribuído pelo [Sistema de Nome de Domínio (DNS)](https://en.wikipedia.org/wiki/Domain_Name_System) para torná-la visível. Por exemplo, se o endereço IP da máquina é `192.0.2.44`, o nome de domínio é `www.feicesoleosas.com` e a porta é `8080` então o servidor web é acessado por [http://192.0.2.44:8080](http://192.0.2.44:8080) e/ou [http://www.feicesoleosas.com:8080](http://www.feicesoleosas.com:8080).
 
 ## Instalação do Aplicativo
 
@@ -48,4 +48,12 @@ A última versão do aplicativo compilada pelo desenvolvedor está disponível n
 
 Utilize o [Android Studio](https://developer.android.com/studio/) para abrir e compilar o projeto presente na pasta `app`. Esta ação só é necessária caso alguma alteração tenha sido feita no código fonte presente nesta pasta.
 
+## Uso do Aplicativo
+
 O uso do aplicativo é bastante intuitivo. A interface o guiará para executar as ações de captura e processamento de vídeos. Mas atenção, para que o processamento seja feito é preciso que o servidor web esteja ativo.
+
+## Uso do Servidor sem o Aplicativo
+
+O servidor pode ser utilizado sem o aplicativo. Para isso, basta utilizar um browser para acessá-lo a partir do endereço que o torna visível (veja a explicação [nesta seção](#inicializacao-do-servidor)) e utilizar a interface web para fazer upload de um vídeo no formato MP4. O vídeo resultante do processamento terá o nome igual a `NOME_ORIGINAL-output.mp4` e a planilha Excel com os dados estimados terá o nome igual a `NOME_ORIGINAL-output.xlsx`, onde `NOME_ORIGINAL.mp4` é o nome do arquivo enviado para processamento.
+
+Por exemplo, se o arquivo de vídeo se chama `MeuVideo.mp4` então os arquivos produzidos serão `MeuVideo-output.mp4` e `MeuVideo-output.xlsx`.

@@ -1,3 +1,0 @@
-velocidade ascendente
-derivada da dimensão da mancha em relação ao tempo
-área perceptível em 1, 2 e 3 segundos

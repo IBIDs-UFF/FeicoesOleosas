@@ -20,7 +20,7 @@ import torch
 
 DEFAULT_CONFIDENCE_THRESHOLD = 0.10
 DEFAULT_LIFETIME_THRESHOLD_IN_SECONDS = 4.0
-DEFAULT_SCALE_FACTOR = 3.0
+DEFAULT_SCALE_FACTOR = 4.0
 DEFAULT_TRACKING_QUEUE_SIZE_IN_SECONDS = 1.0
 
 
@@ -28,6 +28,14 @@ class BufferItem(NamedTuple):
     frame_rgb: Tensor
     padded_img: Tensor
     flow: Tensor
+
+
+def default_output_mp4_path(input: str) -> str:
+    return f'{os.path.splitext(input)[0]}-output.mp4'
+
+
+def default_output_xlsx_path(output: str) -> str:
+    return f'{os.path.splitext(output)[0]}.xlsx'
 
 
 @torch.no_grad()
@@ -84,6 +92,7 @@ def main(args: argparse.Namespace) -> None:
         flow_estimator = FlowEstimator(device=args.device, scale=args.scale, used_width=used_width, used_height=used_height)
         tmp = max(32, int(32 / args.scale))
         padding = (0, ((used_width - 1) // tmp + 1) * tmp - used_width, 0, ((used_height - 1) // tmp + 1) * tmp - used_height)
+        delta = torch.zeros((used_height, used_width, 2), dtype=torch.float32, device=args.device)
         hsv = torch.zeros((3, used_height, used_width), dtype=torch.float32, device=args.device)
         hsv[1, ...] = 1.0
         # Create the drop tracker.
@@ -139,11 +148,13 @@ def main(args: argparse.Namespace) -> None:
                         oil_spill[is_lost_drop] = drop_tracker.lost_drops_footprint[is_lost_drop]
                     # Follow the oil spill.
                     past_data: BufferItem = queue.popleft()
-                    spill_from = (past_data.flow + pixel_ind).round().to(torch.long)
+                    delta += past_data.flow
+                    delta_round = delta.round()
+                    spill_from = (delta_round + pixel_ind).to(torch.long)
                     from_x = torch.clip(spill_from[..., 0].ravel(), 0, used_width - 1)
                     from_y = torch.clip(spill_from[..., 1].ravel(), 0, used_height - 1)
-                    new_oil_spill = oil_spill[from_y, from_x].view(used_height, used_width)
-                    oil_spill = torch.maximum(oil_spill, new_oil_spill)
+                    oil_spill = torch.maximum(oil_spill[from_y, from_x].view(used_height, used_width), oil_spill)
+                    delta[delta_round != 0.0] = 0.0
                     # Update visible background statistics
                     oil_spill_id = oil_spill.ravel()
                     drop_ids, spill_areas = torch.unique(oil_spill_id[oil_spill_id != oil.BACKGROUND_ID], return_counts=True)
@@ -157,16 +168,16 @@ def main(args: argparse.Namespace) -> None:
                     # Draw drop bounding boxes.
                     rectangle = []
                     color = []
-                    candidate_drop_count = 0
-                    former_drop_count = 0
+                    drops_count = 0
+                    candidate_drops_count = 0
                     for drop in drop_tracker.drops:
-                        if drop['active']:
+                        if drop['id'] is None:
                             x, y, w, h = drop['bbox']
                             rectangle.append((x, y, x + w, y + h))
                             color.append((1.0, 0.0, 1.0) if drop['last_seen'] == frame_ind else (0.5, 0.5, 0.5))
-                            candidate_drop_count += 1
+                            candidate_drops_count += 1
                         else:
-                            former_drop_count += 1
+                            drops_count += 1
                     if len(rectangle) > 0:
                         kornia.utils.draw_rectangle(frame_rgb.unsqueeze(0), rectangle=torch.as_tensor([rectangle], dtype=torch.float32, device=args.device), color=torch.as_tensor([color], dtype=torch.float32, device=args.device))
                     # Draw oil spill.
@@ -175,7 +186,7 @@ def main(args: argparse.Namespace) -> None:
                     oil_spill_rgb = oil_spill_rgb.view(3, used_height, used_width)
                     # Write result to output video.
                     video_out.write(np.concatenate((
-                        cv2.putText(tensor_to_image(kornia.color.rgb_to_bgr(past_data.frame_rgb)).copy(), f'Drops: {former_drop_count} | Candidates: {candidate_drop_count}', color=(0, 0, 0), **frame_title_style),
+                        cv2.putText(tensor_to_image(kornia.color.rgb_to_bgr(past_data.frame_rgb)).copy(), f'Drops: {drops_count} | Candidates: {candidate_drops_count}', color=(0, 0, 0), **frame_title_style),
                         cv2.putText(tensor_to_image(kornia.color.rgb_to_bgr(flow_to_rgb(past_data.flow, hsv))).copy(), 'Motion Flow', color=(255, 255, 255), **frame_title_style),
                         cv2.putText(tensor_to_image(kornia.color.rgb_to_bgr(oil_spill_rgb)).copy(), 'Oil Spill', color=(0, 0, 0), **frame_title_style),
                     ), axis=1))
@@ -187,9 +198,22 @@ def main(args: argparse.Namespace) -> None:
                     ret, frame_bgr = video_in.read()
         finally:
             video_out.release()
-            # Write result to to Excel .xlsx file.
-            df = pandas.DataFrame(drop_tracker.drops)
-            df.to_excel(f'{os.path.splitext(args.output)[0]}.xlsx')
+            # Write result to .xlsx file.
+            time = list(range(1, num_frames // fps))
+            drops = []
+            for drop in drop_tracker.drops:
+                drop_id = drop['id']
+                if drop_id is not None:
+                    drop['first_seen'] /= fps
+                    drop['last_seen'] /= fps
+                    drop['lifetime'] /= fps
+                    area_series = area_counts[drop_id]
+                    area = [area_series[ind:(ind + fps)].mean().item() for ind in range(0, num_frames, fps)]
+                    for key, value in zip(time, area):
+                        drop[str(key)] = value
+                    drops.append(drop)
+            df = pandas.DataFrame(drops, columns=['id', 'first_seen', 'last_seen', 'lifetime', *map(str, time)])
+            df.to_excel(default_output_xlsx_path(args.output), sheet_name='Drops', float_format='%.2f', index=False)
     finally:
         video_in.release()
 
@@ -223,7 +247,7 @@ if __name__ == '__main__':
     group = parser.add_argument_group('flow estimation arguments')
     group.add_argument('--scale', metavar='FACTOR', type=positive_float_type, default=DEFAULT_SCALE_FACTOR, help='scale factor for flow estimtion')
     # Declare drop detection/tracking arguments.
-    group = parser.add_argument_group('drop detection/tracking arguments')
+    group = parser.add_argument_group('drop detection and tracking arguments')
     group.add_argument('--confidence_threshold', metavar='VALUE', type=lambda arg: float_in_range_type(arg, 0.0, 1.0), default=DEFAULT_CONFIDENCE_THRESHOLD, help='confidence threshold')
     group.add_argument('--lifetime_threshold', metavar='TIME', type=positive_float_type, default=DEFAULT_LIFETIME_THRESHOLD_IN_SECONDS, help='minimum lifetime (in seconds) for a drop candidate be considered a drop')
     group.add_argument('--tracking_queue_size', metavar='TIME', type=positive_float_type, default=DEFAULT_TRACKING_QUEUE_SIZE_IN_SECONDS, help='time (in seconds) before stop tracking the drop')
@@ -231,8 +255,8 @@ if __name__ == '__main__':
     group = parser.add_argument_group('other arguments')
     group.add_argument(*default_arguments.DEVICE_ARGS, **default_arguments.DEVICE_KWARGS)
     # Parse arguments.
-    args = parser.parse_args(['--input', os.path.join('..', 'FeicoesOleosas-Dataset', 'Petrobras - P52', 'P52-S2.mp4')])  #TODO Debug
+    args = parser.parse_args()
     if args.output is None:
-        args.output = f'{os.path.splitext(args.input)[0]}-output.mp4'
+        args.output = default_output_mp4_path(args.input)
     # Call the main method.
     main(args)
