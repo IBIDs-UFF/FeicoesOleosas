@@ -35,3 +35,7 @@ RUN pip install --no-cache -r requirements.txt torch==1.10.2+cu113 torchvision==
 
 # Cleanup
 RUN rm requirements.txt
+
+# Change the workdir
+RUN mkdir /workspace/FeicoesOleosas
+WORKDIR /workspace/FeicoesOleosas
