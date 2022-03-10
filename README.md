@@ -33,7 +33,7 @@ O primeiro comando criará a pasta `FeicoesOleosas` na pasta corrente e colocar�
 Uma vez que o container estiver criado, inicialize o servidor executando o comando abaixo, substituindo `PORT` pela porta liberada pelo administrador da rede:
 
 ```bash
-docker run -p PORT:8000 -v ${PWD}:/wd --runtime=nvidia --rm --ipc=host --ulimit memlock=-1 --ulimit stack=67108864 feicoesoleosas python /wd/http/server.py --address 0.0.0.0 --port 8000
+docker run -p PORT:8000 -v ${PWD}:/workspace/FeicoesOleosas --runtime=nvidia --rm --ipc=host --ulimit memlock=-1 --ulimit stack=67108864 feicoesoleosas python /workspace/FeicoesOleosas/http/server.py --address 0.0.0.0 --port 8000
 ```
 
 A partir de agora o servidor web e de processamento estará disponível no endereço `localhost:PORT`. Ou seja, após inicializado, o servidor poderá ser acessado por um browser ou pelo aplicativo. Recomenda-se o uso do browser [Chrome](https://www.google.com/chrome/).

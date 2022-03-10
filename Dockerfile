@@ -5,7 +5,7 @@ FROM nvcr.io/nvidia/pytorch:21.10-py3
 ENV DEBIAN_FRONTEND=noninteractive
 ENV NVIDIA_DRIVER_CAPABILITIES all
 ENV NVIDIA_VISIBLE_DEVICES all
-ENV PYTHONPATH="/wd/http/:/wd/py/:${PYTHONPATH}"
+ENV PYTHONPATH="/workspace/FeicoesOleosas/http/:/workspace/FeicoesOleosas/py/:${PYTHONPATH}"
 
 ##################################################################
 # You should modify this to match your CPU compute capability
