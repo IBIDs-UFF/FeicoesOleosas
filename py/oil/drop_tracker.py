@@ -1,9 +1,14 @@
 from numpy import argmin
 from .drop_detector import BoundingBox, DropDetector
 from torch import Tensor
-from typing import Iterator, List, TypedDict, Optional, Tuple
+from typing import Iterator, List, Optional, Tuple
 import itertools
 import torch
+
+try:
+    from typing import TypedDict
+except ImportError:
+    from typing_extensions import TypedDict
 
 
 BACKGROUND_ID = 0

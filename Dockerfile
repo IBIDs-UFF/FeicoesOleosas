@@ -1,37 +1,37 @@
-ARG PYTORCH="1.10.0"
-ARG CUDA="11.3"
-ARG CUDNN="8"
+# Start FROM NVIDIA PyTorch image https://ngc.nvidia.com/catalog/containers/nvidia:pytorch
+FROM nvcr.io/nvidia/pytorch:21.10-py3
 
-FROM pytorch/pytorch:${PYTORCH}-cuda${CUDA}-cudnn${CUDNN}-devel
+# Set some environment variables
+ENV DEBIAN_FRONTEND=noninteractive
+ENV NVIDIA_DRIVER_CAPABILITIES all
+ENV NVIDIA_VISIBLE_DEVICES all
+ENV PYTHONPATH="/wd/http/:/wd/py/:${PYTHONPATH}"
 
-#############################################################
-# You should modify this to match your GPU compute capability
-ENV TORCH_CUDA_ARCH_LIST="6.0 6.1 7.0+PTX"
-#############################################################
-
-#############################################################
+##################################################################
 # You should modify this to match your CPU compute capability
 ENV MAX_JOBS=2
-#############################################################
+##################################################################
 
-ENV NVIDIA_DRIVER_CAPABILITIES all
-ENV TORCH_NVCC_FLAGS="-Xfatbin -compress-all"
+##################################################################
+# You should modify this to match your geographic area
+# See https://en.wikipedia.org/wiki/List_of_tz_database_time_zones
+ENV TZ=America/Sao_Paulo
+##################################################################
 
-# Create a working directory and copy the codebase into the image
-RUN mkdir wd
-WORKDIR /wd
+# Expose the HTTP server port
+EXPOSE 8000
 
-RUN mkdir http
-COPY http/* ./http
+# Install linux packages
+RUN apt update
+RUN apt install -y zip htop screen libgl1-mesa-glx bash build-essential python3-opencv
 
-RUN mkdir py
-COPY py/* ./py
+# Copy the list of dependencies
+COPY py/requirements.txt .
 
-# Install dependencies
-RUN apt-get update
-RUN apt-get install -y \
-    bash build-essential cmake ffmpeg git libopenblas-dev ninja-build openssh-server tmux ubuntu-restricted-extras wget xauth xterm
-RUN apt-get clean
-RUN rm -rf /var/lib/apt/lists/*
+# Install Python dependencies
+RUN python -m pip install --upgrade pip
+RUN pip uninstall -y torch torchvision torchtext
+RUN pip install --no-cache -r requirements.txt torch==1.10.2+cu113 torchvision==0.11.3+cu113 -f https://download.pytorch.org/whl/cu113/torch_stable.html
 
-RUN pip install -r python ./lib/requirements.txt
+# Cleanup
+RUN rm requirements.txt
