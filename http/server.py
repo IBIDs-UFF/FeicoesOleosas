@@ -1,16 +1,18 @@
 from about import *
 from io import BytesIO
-from subprocess import CalledProcessError
 from tqdm import tqdm
 import html, mimetypes, os, posixpath, re, shutil
 import http.server
-import argparse, subprocess, sys
+import argparse, asyncio, sys
 import urllib.request, urllib.parse, urllib.error
 
 
-RUN_SCRIPT_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'py', 'run.py'))
- 
- 
+async def execute_run_script(input: str) -> None:
+    RUN_SCRIPT_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'py', 'run.py'))
+    with open(f'{os.path.splitext(input)[0]}-stdout.txt', 'w+') as fout:
+        await asyncio.create_subprocess_exec(sys.executable, RUN_SCRIPT_PATH, '--input', input, stdout=fout, stderr=asyncio.subprocess.STDOUT)
+
+
 class SimpleHTTPRequestHandler(http.server.BaseHTTPRequestHandler):
 
     def do_GET(self):
@@ -94,12 +96,8 @@ class SimpleHTTPRequestHandler(http.server.BaseHTTPRequestHandler):
                 out.write(preline)
                 out.close()
                 pbar.close()
-                try:
-                    result = subprocess.run([sys.executable, RUN_SCRIPT_PATH, '--input', fn])
-                    result.check_returncode()
-                    return (True, f'Click "Back" to access the results produced for the file "{os.path.basename(fn)}".')
-                except CalledProcessError as error:
-                    return (False, str(error))
+                asyncio.run(execute_run_script(fn))
+                return (True, 'Successful upload. The result will be accessible once processing is complete. Click "Back" to see the current files on the server.')
             else:
                 out.write(preline)
                 preline = line
@@ -153,7 +151,8 @@ class SimpleHTTPRequestHandler(http.server.BaseHTTPRequestHandler):
         interface the same as for send_head().
         """
         try:
-            videos = list(filter(lambda arg: arg.lower().endswith('.mp4') or arg.lower().endswith('.xlsx'), os.listdir(path)))
+            VISIBLE_FILE_EXTENSIONS = ('.mp4', '.xlsx', '.txt')
+            videos = list(filter(lambda arg: os.path.splitext(arg)[1].lower() in VISIBLE_FILE_EXTENSIONS, os.listdir(path)))
         except os.error:
             self.send_error(404, 'No permission to list directory')
             return None
@@ -230,7 +229,7 @@ class SimpleHTTPRequestHandler(http.server.BaseHTTPRequestHandler):
         as a default; however it would be permissible (if
         slow) to look inside the data to make a better guess.
         """
-        base, ext = posixpath.splitext(path)
+        _, ext = posixpath.splitext(path)
         if ext in self.extensions_map:
             return self.extensions_map[ext]
         ext = ext.lower()
@@ -247,6 +246,7 @@ class SimpleHTTPRequestHandler(http.server.BaseHTTPRequestHandler):
         '.py': 'text/plain',
         '.c': 'text/plain',
         '.h': 'text/plain',
+        '.txt': 'text/plain',
         '.mp4': 'video/mp4',
         '.xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
     })

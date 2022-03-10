@@ -31,7 +31,7 @@ class BufferItem(NamedTuple):
 
 
 def default_output_mp4_path(input: str) -> str:
-    return f'{os.path.splitext(input)[0]}-output.mp4'
+    return f'{os.path.splitext(input)[0]}-result.mp4'
 
 
 def default_output_xlsx_path(output: str) -> str:
