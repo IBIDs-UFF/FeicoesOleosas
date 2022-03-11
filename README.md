@@ -69,6 +69,6 @@ O uso do aplicativo é bastante intuitivo. A interface o guiará para executar a
 
 ## Uso do Servidor sem o Aplicativo
 
-O servidor pode ser utilizado sem o aplicativo. Para isso, basta utilizar um browser para acessá-lo a partir do endereço que o torna visível (veja a explicação [nesta seção](#inicializacao-do-servidor)) e utilizar a interface web para fazer upload de um vídeo no formato MP4. O vídeo resultante do processamento terá o nome igual a `NOME_ORIGINAL-output.mp4` e a planilha Excel com os dados estimados terá o nome igual a `NOME_ORIGINAL-output.xlsx`, onde `NOME_ORIGINAL.mp4` é o nome do arquivo enviado para processamento.
+O servidor pode ser utilizado sem o aplicativo. Para isso, basta utilizar um browser para acessá-lo a partir do endereço que o torna visível (veja a explicação [nesta seção](#inicializacao-do-servidor)) e utilizar a interface web para fazer upload de um vídeo no formato MP4. O vídeo resultante do processamento terá o nome igual a `NOME_ORIGINAL-result.mp4` e a planilha Excel com os dados estimados terá o nome igual a `NOME_ORIGINAL-result.xlsx`, onde `NOME_ORIGINAL.mp4` é o nome do arquivo enviado para processamento. O arquivo `NOME_ORIGINAL-stdout.txt` contêm as mensagens impressas durante o processamento.
 
-Por exemplo, se o arquivo de vídeo se chama `MeuVideo.mp4` então os arquivos produzidos serão `MeuVideo-output.mp4` e `MeuVideo-output.xlsx`.
+Por exemplo, se o arquivo de vídeo se chama `MeuVideo.mp4` então os arquivos produzidos serão `MeuVideo-result.mp4`, `MeuVideo-result.xlsx` e `MeuVideo-stdout.txt`.

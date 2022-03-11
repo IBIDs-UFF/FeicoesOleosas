@@ -1,0 +1,57 @@
+<resources>
+    <string name="app_name">Feições Oleosas</string>
+
+    <string name="action_settings">Configurações</string>
+
+    <string name="cancel">Cancelar</string>
+    <string name="save">Salvar</string>
+
+    <string name="settings_invalid_address">Endereço requerido</string>
+    <string name="settings_invalid_port">Número positivo ou campo em branco requerido</string>
+
+    <string name="main_fragment_label">Principal</string>
+    <string name="gallery_fragment_label">Galeria</string>
+    <string name="record_fragment_label">Gravar Vídeo</string>
+
+    <string name="binding_failed">Falha na vinculação.\n\n%1$s</string>
+    <string name="hello_main_fragment">Por favor, selecione a ação que você deseja executar</string>
+    <string name="record_failed">Falha de gravação\n\n%1$s</string>
+    <string name="record_in_progress">Gravação em andamento</string>
+    <string name="record_success">Vídeo salvo na galeria\nArquivo: %1$s.mp4</string>
+
+    <string name="open_settings">Abrir configurações</string>
+    <string name="permissions_needed_title">Permissão negada</string>
+    <string name="permissions_needed_message">Permissão de acesso à câmera é requerida para gravar vídeos</string>
+    <string name="permissions_not_granted">Permissão não concedida pelo usuário</string>
+
+    <string name="go_to_gallery">Ir para a galeria</string>
+    <string name="go_to_record">Gravar um novo vídeo</string>
+
+    <string name="delete_button_description">Excluir arquivo</string>
+    <string name="record_start_button_description">Inicia a gravação de vídeo</string>
+    <string name="record_stop_button_description">Para a gravação de vídeo</string>
+    <string name="send_button_description">Envia vídeo para processamento</string>
+    <string name="thumbnail_view_description">Visualização em miniatura</string>
+
+    <string name="duration_format">Duração: %d:%02d</string>
+    <string name="size_format">Tamanho: %s</string>
+
+    <string name="video_deleted_successfully">Vídeo excluído com sucesso</string>
+    <string name="action_canceled">Ação cancelada</string>
+
+    <string name="file_uploaded_successfully">Arquivo enviado com sucesso</string>
+    <string name="file_uploading_error">Falha ao enviar o arquivo (%1$s)</string>
+    <string name="file_uploading_message">Enviando arquivo…</string>
+    <string name="not_able_to_get_mime_type">Não foi possível obter o tipo MIME</string>
+
+    <string name="address">Endereço</string>
+    <string name="port">Porta</string>
+    <string name="protocol">Protocolo</string>
+    <string name="server">Servidor</string>
+
+    <string-array name="protocol_items">
+        <item>HTTP</item>
+        <item>HTTPS</item>
+    </string-array>
+
+</resources>

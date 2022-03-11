@@ -4,6 +4,10 @@
     <string name="action_settings">Settings</string>
 
     <string name="cancel">Cancel</string>
+    <string name="save">Save</string>
+
+    <string name="settings_invalid_address">Address required</string>
+    <string name="settings_invalid_port">Positive number or empty value required</string>
 
     <string name="main_fragment_label">Main</string>
     <string name="gallery_fragment_label">Gallery</string>
@@ -26,7 +30,7 @@
     <string name="delete_button_description">Delete file</string>
     <string name="record_start_button_description">Start video record</string>
     <string name="record_stop_button_description">Stop video record</string>
-    <string name="send_button_description">Send to process</string>
+    <string name="send_button_description">Send video to processing</string>
     <string name="thumbnail_view_description">Thumbnail view</string>
 
     <string name="duration_format">Duration: %d:%02d</string>
@@ -34,5 +38,20 @@
 
     <string name="video_deleted_successfully">Video deleted successfully</string>
     <string name="action_canceled">Action canceled</string>
+
+    <string name="file_uploaded_successfully">File uploaded successfully</string>
+    <string name="file_uploading_error">File uploading failed (%1$s)</string>
+    <string name="file_uploading_message">Uploading file…</string>
+    <string name="not_able_to_get_mime_type">Not able to get mime type</string>
+
+    <string name="address">Address</string>
+    <string name="port">Port</string>
+    <string name="protocol">Protocol</string>
+    <string name="server">Server</string>
+
+    <string-array name="protocol_items">
+        <item>HTTP</item>
+        <item>HTTPS</item>
+    </string-array>
 
 </resources>

@@ -1,7 +1,9 @@
 package com.prograf.oilyfeatures
 
 import android.Manifest
+import android.content.Context
 import android.content.Intent
+import android.content.SharedPreferences
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Bundle
@@ -20,6 +22,7 @@ import androidx.navigation.findNavController
 import androidx.navigation.ui.AppBarConfiguration
 import androidx.navigation.ui.navigateUp
 import androidx.navigation.ui.setupActionBarWithNavController
+import com.prograf.oilyfeatures.data.DefaultSettings
 import com.prograf.oilyfeatures.databinding.ActivityMainBinding
 import com.prograf.oilyfeatures.widget.VideosListAdapter
 import java.util.concurrent.ExecutorService
@@ -33,6 +36,7 @@ class MainActivity : AppCompatActivity() {
 
         private val REQUIRED_PERMISSIONS = arrayOf(
             Manifest.permission.CAMERA,
+            Manifest.permission.INTERNET,
             Manifest.permission.READ_EXTERNAL_STORAGE,
             Manifest.permission.WRITE_EXTERNAL_STORAGE,
         )
@@ -41,6 +45,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var appBarConfiguration: AppBarConfiguration
     private lateinit var binding: ActivityMainBinding
     private lateinit var cameraExecutor: ExecutorService
+    private lateinit var settings: SharedPreferences
 
     lateinit var galleryDeleteLauncher: ActivityResultLauncher<IntentSenderRequest>
     var galleryDeleteFromAdapter: VideosListAdapter? = null
@@ -54,6 +59,16 @@ class MainActivity : AppCompatActivity() {
 
         if (!allPermissionsGranted()) {
             ActivityCompat.requestPermissions(this, REQUIRED_PERMISSIONS, REQUEST_CODE_PERMISSIONS)
+        }
+
+        settings = getSharedPreferences("Settings", Context.MODE_PRIVATE)
+        if (settings.getBoolean("FirstTime", true)) {
+            val dialog = SettingsDialogFragment(settings)
+            dialog.show(supportFragmentManager, null)
+            settings.edit().apply {
+                putBoolean("FirstTime", false)
+                apply()
+            }
         }
 
         galleryDeleteLauncher = registerForActivityResult(ActivityResultContracts.StartIntentSenderForResult()) {
@@ -91,7 +106,11 @@ class MainActivity : AppCompatActivity() {
 
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
         return when (item.itemId) {
-            R.id.action_settings -> true
+            R.id.action_settings -> {
+                val dialog = SettingsDialogFragment(settings)
+                dialog.show(supportFragmentManager, null)
+                true
+            }
             else -> super.onOptionsItemSelected(item)
         }
     }
@@ -141,6 +160,13 @@ class MainActivity : AppCompatActivity() {
             }
         }
         return true
+    }
+
+    fun serverURL(): String {
+        val protocol = settings.getString(DefaultSettings.PROTOCOL_FIELD, DefaultSettings.PROTOCOL_VALUE)!!.lowercase()
+        val address = settings.getString(DefaultSettings.ADDRESS_FIELD, DefaultSettings.ADDRESS_VALUE)!!
+        val port = settings.getString(DefaultSettings.PORT_FIELD, DefaultSettings.PORT_VALUE.toString())!!.toIntOrNull()
+        return if (port != null) "${protocol}://${address}:${port}" else "${protocol}://${address}"
     }
 
 }

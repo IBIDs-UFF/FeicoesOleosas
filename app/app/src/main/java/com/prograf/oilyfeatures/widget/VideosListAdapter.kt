@@ -14,6 +14,7 @@ import com.bumptech.glide.Glide
 import com.prograf.oilyfeatures.MainActivity
 import com.prograf.oilyfeatures.R
 import com.prograf.oilyfeatures.data.Video
+import com.prograf.oilyfeatures.utils.UploadUtility
 import org.apache.commons.io.FileUtils
 import java.util.concurrent.TimeUnit
 
@@ -53,13 +54,15 @@ class VideosListAdapter(
             .into(holder.thumbnailView)
         // Set controls.
         holder.sendButton.setOnClickListener {
-            Toast.makeText(context, "Enviar o vídeo para procassamento", Toast.LENGTH_LONG).show() // TODO("Implementar")
+            UploadUtility(activity).uploadFile(video.uri, activity.serverURL())
         }
         holder.deleteButton.setOnClickListener {
             activity.galleryDeleteFromAdapter = this
             activity.galleryDeletePosition = videos.indexOf(video)
             val pendingIntent = MediaStore.createDeleteRequest(context.contentResolver, listOf(video.uri))
-            activity.galleryDeleteLauncher.launch(IntentSenderRequest.Builder(pendingIntent.intentSender).build(), )
+            activity.galleryDeleteLauncher.launch(
+                IntentSenderRequest.Builder(pendingIntent.intentSender).build()
+            )
         }
     }
 
