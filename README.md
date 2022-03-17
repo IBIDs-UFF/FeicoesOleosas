@@ -1,6 +1,6 @@
 # Feições Oleosas
 
-A solução *Feições Oleosas* é composto por três componentes:
+A solução *Feições Oleosas* é composta por três componentes:
 
 1. Scripts [Python](https://www.python.org/) para processamento de vídeo (pasta `py`);
 2. Servidor web para ativar o processamento de vídeo a partir de um browser ou do aplicativo (pasta `http`); e
