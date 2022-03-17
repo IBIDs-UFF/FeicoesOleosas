@@ -59,7 +59,7 @@ O endereço IP local é o que determina o endereço de sua máquina dentro de su
 
 ## Instalação do Aplicativo
 
-A última versão do aplicativo compilada pelo desenvolvedor está disponível na [Google Play Store](https://play.google.com/store), no endereço [TODO](TODO). A forma mais simples de obtê-lo é baixando e instalar o aplicativo diretamente de um smartphone Android.
+A última versão do aplicativo compilada pelo desenvolvedor está disponível na [Google Play Store](https://play.google.com/store/apps/details?id=com.prograf.oilyfeatures). A forma mais simples de obtê-lo é baixando e instalar o aplicativo diretamente de um smartphone Android.
 
 Utilize o [Android Studio](https://developer.android.com/studio/) para abrir e compilar o projeto presente na pasta `app`. Esta ação só é necessária caso alguma alteração tenha sido feita no código fonte presente nesta pasta.
 
