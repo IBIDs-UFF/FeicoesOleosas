@@ -50,7 +50,7 @@ hostname -I
 
 No Windows:
 
-1. Clique no menu iniciar;
+1. Clique no menu Iniciar;
 2. Digite `cmd` para entrar no modo de busca e aperte a tecla enter;
 3. No Prompt de comando (caixa preta que apareceu), digite `ipconfig` e aperte a tecla enter de novo;
 4. Após um breve carregamento, aparecerão informações sobre sua rede e onde diz "IPv4" será seu endereço IP local.
