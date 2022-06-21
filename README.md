@@ -38,7 +38,7 @@ docker run -p PORT:8000 -v ${PWD}:/workspace/FeicoesOleosas --runtime=nvidia --r
 
 A partir de agora o servidor web e de processamento estará disponível no endereço `localhost:PORT`. Ou seja, após inicializado, o servidor poderá ser acessado por um browser ou pelo aplicativo. Recomenda-se o uso do browser [Chrome](https://www.google.com/chrome/).
 
-Por exemplo, da própria máquina que atua como servidor, se `PORT` é igual a `8080` então o endereço do servidor web será [http://localhots:8080](http://localhots:8080).
+Por exemplo, da própria máquina que atua como servidor, se `PORT` é igual a `8080` então o endereço do servidor web será [http://localhost:8080](http://localhost:8080).
 
 O endereço de acesso a partir de outra máquina e do aplicativo dependerá do [endereço IP](https://en.wikipedia.org/wiki/IP_address) pelo qual a máquina é visível e/ou do nome de domínio atribuído pelo [Sistema de Nome de Domínio (DNS)](https://en.wikipedia.org/wiki/Domain_Name_System) para torná-la visível. Por exemplo, se o endereço IP da máquina é `192.0.2.44`, o nome de domínio é `www.feicesoleosas.com` e a porta é `8080` então o servidor web é acessado por [http://192.0.2.44:8080](http://192.0.2.44:8080) e/ou [http://www.feicesoleosas.com:8080](http://www.feicesoleosas.com:8080).
 
